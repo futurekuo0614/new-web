@@ -11,32 +11,36 @@ export default async function handler(req, res) {
     const url = qs ? GAS + '?' + qs : GAS;
 
     const headers = {
-      'User-Agent': 'Mozilla/5.0',
-      'Accept': 'application/json, text/plain, */*',
+      'User-Agent': 'Mozilla/5.0 (compatible; Vercel/1.0)',
+      'Accept': 'application/json',
     };
 
-    let opts = {
-      method: req.method,
-      headers,
-      redirect: 'follow',
-    };
+    let opts = { method: req.method, headers, redirect: 'manual' };
 
     if (req.method === 'POST') {
       opts.headers['Content-Type'] = 'application/x-www-form-urlencoded';
       opts.body = new URLSearchParams(req.body).toString();
     }
 
-    const r = await fetch(url, opts);
-    const text = await r.text();
+    let r = await fetch(url, opts);
 
-    console.log('GAS response status:', r.status);
-    console.log('GAS response preview:', text.substring(0, 100));
+    // Apps Script 回傳 302，手動跟隨到最終 URL
+    let hops = 0;
+    while ((r.status === 301 || r.status === 302 || r.status === 303 || r.status === 307) && hops < 5) {
+      const location = r.headers.get('location');
+      if (!location) break;
+      r = await fetch(location, { method: 'GET', headers, redirect: 'manual' });
+      hops++;
+    }
+
+    const text = await r.text();
 
     if (text.trim().startsWith('<')) {
       res.status(502).json({
         status: 'error',
-        message: 'Apps Script 回傳 HTML（可能是 redirect 問題）',
-        preview: text.substring(0, 200),
+        message: 'Apps Script 仍回傳 HTML，redirect 跟隨失敗',
+        hops,
+        preview: text.substring(0, 300),
       });
       return;
     }
