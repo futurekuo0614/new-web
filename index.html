@@ -277,7 +277,7 @@ tick(); setInterval(tick, 1000);
 // Init
 window.addEventListener('load', function() {
   refreshData();
-  setInterval(refreshData, 30000);
+  setInterval(refreshData, 120000); // 每 2 分鐘更新，避免請求堆積
 });
 
 function refreshData() { loadStatus(); loadStats(); loadLatestStartups(); }
@@ -294,8 +294,15 @@ function hideMsg() {
 }
 
 // ── STATUS ──
+function fetchWithTimeout(url, opts, ms) {
+  var ctrl = new AbortController();
+  var timer = setTimeout(function() { ctrl.abort(); }, ms || 15000);
+  var options = Object.assign({}, opts || {}, { signal: ctrl.signal });
+  return fetch(url, options).finally(function() { clearTimeout(timer); });
+}
+
 function loadStatus() {
-  fetch(WEB_APP_URL + '?action=status')
+  fetchWithTimeout(WEB_APP_URL + '?action=status', {}, 15000)
     .then(function(r) { return r.json(); })
     .then(function(data) {
       if (data.status !== 'success') return;
@@ -347,7 +354,7 @@ function loadStatus() {
 
 // ── STATS ──
 function loadStats() {
-  fetch(WEB_APP_URL + '?action=stats')
+  fetchWithTimeout(WEB_APP_URL + '?action=stats', {}, 15000)
     .then(function(r) { return r.json(); })
     .then(function(data) {
       if (data.status !== 'success') return;
@@ -383,7 +390,7 @@ function loadStats() {
 
 // ── STARTUPS ──
 function loadLatestStartups() {
-  fetch(WEB_APP_URL + '?action=latest')
+  fetchWithTimeout(WEB_APP_URL + '?action=latest', {}, 15000)
     .then(function(r) { return r.json(); })
     .then(function(data) {
       var el = document.getElementById('startups-content');
@@ -470,6 +477,10 @@ function triggerCrawler() {
         showMsg('✗ 連線失敗：' + e.message, 'err');
       }
     });
+}
+</script>
+</body>
+</html>
 }
 </script>
 </body>
